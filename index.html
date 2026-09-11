@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Prompt_Maker - メタプロンプト生成システム</title>
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --panel-bg: #ffffff;
+            --output-bg: #f8fafc;
+            --primary: #334155;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --text: #1e293b;
+            --border: #cbd5e1;
+            --sub-text: #64748b;
+        }
+
+        body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; display: flex; flex-direction: column; background: var(--bg-color); color: var(--text); }
+        
+        header { padding: 12px 24px; background: var(--primary); color: white; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        header h1 { margin: 0; font-size: 1.25rem; font-weight: 600; letter-spacing: -0.5px; }
+
+        /* External AI Services Link Area */
+        .ai-links { display: flex; gap: 10px; align-items: center; }
+        .ai-launcher-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: #0078d7; color: #ffffff; font-size: 0.85rem; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .ai-launcher-btn:hover { background: #0095ff; }
+
+        .container { display: flex; flex: 1; overflow: hidden; padding: 16px; gap: 16px; }
+        .pane { flex: 1; display: flex; flex-direction: column; background: var(--panel-bg); border-radius: 12px; border: 1px solid var(--border); padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        
+        .pane-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid var(--bg-color); padding-bottom: 8px; }
+        h2 { font-size: 0.85rem; font-weight: 700; color: var(--sub-text); text-transform: uppercase; margin: 0; letter-spacing: 0.05em; }
+        
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--primary); margin-bottom: 6px; }
+        .required { color: #ef4444; margin-left: 2px; }
+
+        .radio-group { display: flex; flex-direction: column; gap: 8px; background: var(--output-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border); }
+        .radio-item { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; }
+        .radio-item input[type="radio"] { cursor: pointer; accent-color: var(--accent); }
+
+        input[type="text"], input[type="date"], textarea { width: 100%; padding: 10px 12px; font-size: 0.9rem; border: 1px solid var(--border); border-radius: 6px; background: #ffffff; box-sizing: border-box; font-family: inherit; }
+        textarea { resize: vertical; line-height: 1.5; }
+        
+        .action-btn { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: background 0.2s; margin-top: 8px; }
+        .action-btn:hover { background: var(--accent-hover); }
+
+        .clear-btn { width: 100%; padding: 10px; background: #94a3b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: background 0.2s; margin-top: 8px; }
+        .clear-btn:hover { background: #64748b; }
+
+        .copy-btn { padding: 10px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; margin-top: 12px; transition: background 0.2s; }
+        .copy-btn:hover { background: #059669; }
+
+        .output-textarea { flex: 1; padding: 16px; font-size: 0.95rem; border: 1px solid var(--border); border-radius: 8px; background: var(--output-bg); line-height: 1.6; font-family: 'Consolas', 'Monaco', monospace; resize: none; }
+        
+        .diary-only { transition: all 0.3s ease; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Prompt_Maker</h1>
+        <!-- AI 画面一括起動ボタン -->
+        <div class="ai-links">
+            <button class="ai-launcher-btn" onclick="openAIWindows()">
+                ⚡ AI 2画面で起動 (Gemini & ChatGPT)
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- 左パネル：条件入力 -->
+        <div class="pane">
+            <div class="pane-header">
+                <h2>1. 条件入力（フォーム）</h2>
+            </div>
+            
+            <!-- 問い合わせ先（専門窓口）ラジオボタン -->
+            <div class="form-group">
+                <label>問い合わせ先（役割・専門性）<span class="required">*</span></label>
+                <div class="radio-group">
+                    <label class="radio-item">
+                        <input type="radio" name="targetRole" value="diary" checked onchange="toggleFormMode()">
+                        <span><strong>日記・振り返り作成アシスタント</strong>（歳時記＋社会トピックス＋個人常体日記）</span>
+                    </label>
+                    <label class="radio-item">
+                        <input type="radio" name="targetRole" value="programmer" onchange="toggleFormMode()">
+                        <span><strong>マルチ言語対応シニアプログラマー</strong>（コード・開発・エラー解析）</span>
+                    </label>
+                    <label class="radio-item">
+                        <input type="radio" name="targetRole" value="it_helpdesk" onchange="toggleFormMode()">
+                        <span><strong>ITヘルプデスク・システム担当</strong>（PC操作・障害・設定案内）</span>
+                    </label>
+                    <label class="radio-item">
+                        <input type="radio" name="targetRole" value="hr_general" onchange="toggleFormMode()">
+                        <span><strong>人事・総務相談</strong>（労務・規定・手続き案内）</span>
+                    </label>
+                    <label class="radio-item">
+                        <input type="radio" name="targetRole" value="business_consultant" onchange="toggleFormMode()">
+                        <span><strong>業務改善・IT活用コンサル</strong>（アイデア出し・プロセス効率化）</span>
+                    </label>
+                    <label class="radio-item">
+                        <input type="radio" name="targetRole" value="general_assistant" onchange="toggleFormMode()">
+                        <span><strong>汎用ビジネスアシスタント</strong>（文章作成・要約・一般的な相談）</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 日記専用の入力フィールド（日付・地域） -->
+            <div id="diaryFields" class="diary-only">
+                <div class="form-group">
+                    <label>対象日付<span class="required">*</span></label>
+                    <input type="date" id="inputDate">
+                </div>
+                <div class="form-group">
+                    <label>対象地域（居住地・市町村など）</label>
+                    <input type="text" id="inputLocation" placeholder="例: 福岡県太宰府市、東京都世田谷区など">
+                </div>
+            </div>
+
+            <!-- テンプレート入力項目 -->
+            <div class="form-group">
+                <label id="labelGoal">目的・今日の個人的な出来事<span class="required">*</span></label>
+                <textarea id="inputGoal" rows="3" placeholder="例: 午前中は畑の手入れをして野菜に水やりをした。午後は新しく組み替えたPCの動作確認を行った。"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label id="labelContext">前提条件・今日の感想や感じたこと</label>
+                <textarea id="inputContext" rows="3" placeholder="例: 日差しが強くて少し疲れたが、野菜が順調に育っていて嬉しかった。夜に食べた蕎麦が美味しかった。"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label id="labelTarget">ターゲット / 読み手・日記のトーン</label>
+                <input type="text" id="inputTarget" placeholder="例: 自分用の個人日記（シンプルで落ち着いた常体）">
+            </div>
+
+            <div class="form-group">
+                <label id="labelFormat">出力形式・構成の希望</label>
+                <input type="text" id="inputFormat" placeholder="例: 【気象・歳時記】【主なニュース（世界/日本/地域）】【個人の日記（常体）】の構成">
+            </div>
+
+            <button class="action-btn" onclick="generateMetaPrompt()">Prompt_Maker でプロンプト案を生成 ⚡</button>
+            <button class="clear-btn" onclick="clearForm()">入力欄をクリア 🧹</button>
+        </div>
+
+        <!-- 右パネル：プロンプト案出力・編集 -->
+        <div class="pane">
+            <div class="pane-header">
+                <h2>2. 生成されたプロンプト案（編集・コピー可能）</h2>
+            </div>
+            <textarea id="outputPrompt" class="output-textarea" placeholder="ここに Prompt_Maker が作成した最適化プロンプト案が出力されます。直接編集も可能です。"></textarea>
+            
+            <div style="display: flex; gap: 8px;">
+                <button class="copy-btn" style="flex: 1;" onclick="copyPrompt()">プロンプトをクリップボードにコピー 📋</button>
+                <button class="clear-btn" style="width: auto; margin-top: 12px;" onclick="clearOutputPrompt()">プロンプト案をクリア 🧹</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = "AQ.Ab8RN6KiJb8tadEsKoHLr7-ivRK-vVX6A4w27GKTON9LwOODlw";
+
+        // 初期表示で今日の日付をセット
+        document.getElementById('inputDate').valueAsDate = new Date();
+
+        // AI 2画面起動処理（AI_Dialogue.htmlより移植）
+        function openAIWindows() {
+            const sites = [
+                { name: 'Gemini', url: 'https://gemini.google.com/' },
+                { name: 'ChatGPT', url: 'https://chatgpt.com/' }
+            ];
+
+            const screenWidth = window.screen.availWidth;
+            const screenHeight = window.screen.availHeight;
+            
+            const winWidth = Math.floor(screenWidth / 2);
+            const winHeight = screenHeight;
+
+            // 1つずつ少し時間をずらして開くことで、ポップアップブロックを回避する
+            sites.forEach((site, index) => {
+                setTimeout(() => {
+                    const left = index * winWidth;
+                    const top = 0;
+                    const features = `width=${winWidth},height=${winHeight},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no,status=no`;
+                    
+                    window.open(site.url, 'ai_win_' + index, features);
+                }, index * 250); // 0.25秒間隔をあけて起動
+            });
+        }
+
+        // 役割ごとの定義
+        const ROLE_DEFINITIONS = {
+            diary: "あなたは客観的なデータ記録、歳時記、および個人日記を整理するリサーチャー兼記録編集者です。指定日の「気象・歳時記情報（二十四節気/七十二候/代表的な季語・旬）」、「世界・日本・居住地の主要ニュース」をトピック形式で抽出し、ユーザー個人の出来事・心情（常体：だ・である・だった）と併記するスタイルで日記を作成してください。",
+            programmer: "あなたは各種プログラミング言語の最新仕様とベストプラクティスに精通した非常に優秀なシニアエンジニアです。可読性・保守性・セキュリティ・エラー処理に優れた堅牢なコードと明確な解説を提供してください。",
+            it_helpdesk: "あなたは社内ITヘルプデスクの専門家です。専門用語をわかりやすく噛み砕き、PC操作に詳しくないユーザーでも迷わず試せるステップバイステップの解決手順を案内してください。",
+            hr_general: "あなたは人事・総務部門の相談員です。社内規定や労務に沿い、丁寧かつ中立的で親身なトーンで回答を作成してください。",
+            business_consultant: "あなたは業務効率化とIT活用のスペシャリストです。課題に対して複数の解決案（即効性のある案・根本策）とそれらのメリット・デメリットを論理的に提示してください。",
+            general_assistant: "あなたは優秀なビジネスアシスタントです。結論ファースト（PREP法）で簡潔かつ論理的な回答を作成してください。"
+        };
+
+        function toggleFormMode() {
+            const selectedRoleKey = document.querySelector('input[name="targetRole"]:checked').value;
+            const diaryFields = document.getElementById('diaryFields');
+            
+            if (selectedRoleKey === 'diary') {
+                diaryFields.style.display = 'block';
+                document.getElementById('labelGoal').innerHTML = '目的・今日の個人的な出来事<span class="required">*</span>';
+                document.getElementById('labelContext').innerText = '前提条件・今日の感想や感じたこと';
+                document.getElementById('labelTarget').innerText = 'ターゲット / 読み手・日記のトーン';
+                document.getElementById('labelFormat').innerText = '出力形式・構成の希望';
+            } else {
+                diaryFields.style.display = 'none';
+                document.getElementById('labelGoal').innerHTML = '目的・達成したいこと<span class="required">*</span>';
+                document.getElementById('labelContext').innerText = '前提条件・背景・環境';
+                document.getElementById('labelTarget').innerText = 'ターゲット / 読み手';
+                document.getElementById('labelFormat').innerText = '出力形式・制約事項';
+            }
+        }
+
+        async function generateMetaPrompt() {
+            const selectedRoleKey = document.querySelector('input[name="targetRole"]:checked').value;
+            const goal = document.getElementById('inputGoal').value.trim();
+            const context = document.getElementById('inputContext').value.trim();
+            const target = document.getElementById('inputTarget').value.trim();
+            const format = document.getElementById('inputFormat').value.trim();
+            const targetDate = document.getElementById('inputDate').value;
+            const location = document.getElementById('inputLocation').value.trim();
+            const outputArea = document.getElementById('outputPrompt');
+
+            if (!goal) {
+                alert(selectedRoleKey === 'diary' ? '「個人的な出来事」を入力してください。' : '「目的・達成したいこと」を入力してください。');
+                return;
+            }
+
+            const systemRole = ROLE_DEFINITIONS[selectedRoleKey];
+            outputArea.value = "Prompt_Maker が最適なプロンプト案を構築中...";
+
+            let diaryExtraInfo = "";
+            if (selectedRoleKey === 'diary') {
+                diaryExtraInfo = `
+- 日記の対象日付: ${targetDate || '指定なし'}
+- 対象地域（居住地）: ${location || '指定なし'}
+- 外部情報収集の指示: AI側で上記日付・地域における「天気・気温」「今日は何の日」「歳時記（二十四節気・七十二候・この時期の代表的な季語や旬）」、および「世界」「日本」「居住地（地域）」それぞれの主な出来事を収集し、簡潔なトピック項目として掲載すること。
+- 出力時の必須制約: 回答には＊や＃などのマークダウン記号を使わず、プレーンテキストのみで出力してください。
+`;
+            }
+
+            const metaPrompt = `
+以下の【回答者の役割設定】と【依頼内容】をもとに、ユーザーが各種AI（ChatGPT, Claude, Geminiなど）にそのまま投入して一発で高品質な回答を得られる「完成された最適化プロンプト」を作成してください。
+
+### 【回答者の役割設定】
+${systemRole}
+
+### 【依頼内容】
+- 目的/個人的な出来事: ${goal}
+- 前提条件/感想・気分: ${context || '特に行動や思考の背景なし'}
+- ターゲット/トーン: ${target || '指定なし'}
+- 出力形式/構成: ${format || '指定なし'}
+${diaryExtraInfo}
+
+---
+
+### 【プロンプト作成ルール】
+1. 生成するプロンプトは、以下のMarkdown構造（見出し付き）で組み立ててください。
+   ${selectedRoleKey === 'diary' ? `
+   - # 役割と目的
+   - # 対象日および環境情報
+   - # ユーザーの個人体験・感想
+   - # 編集方針（気象・歳時記・ニュースを独立したトピックとして並べ、個人日記は常体『だ・である・だった』で記述する）
+   - # 出力フォーマット（【気象・歳時記】【世の中の主な出来事（世界/日本/地域）】【個人の日記】のセクション分離。回答には＊や＃などのマークダウン記号を使わず、プレーンテキストのみで出力すること）
+   ` : `
+   - # 役割と目的
+   - # 前提条件・背景
+   - # 実行指示（ステップバイステップ）
+   - # 出力フォーマット・制約事項
+   `}
+2. 余計な挨拶や解説文は一切含めず、**ユーザーがそのままコピーして使えるプロンプト文面のみ**を出力してください。
+`;
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${API_KEY}`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: metaPrompt }] }] })
+                });
+
+                const data = await response.json();
+                if (data.error) {
+                    outputArea.value = `エラー: ${data.error.message}`;
+                    return;
+                }
+
+                let generatedText = data.candidates[0].content.parts[0].text;
+                generatedText = generatedText.replace(/^```markdown\n/, '').replace(/^```\n/, '').replace(/\n```$/, '');
+                
+                outputArea.value = generatedText;
+
+            } catch (error) {
+                outputArea.value = "エラーが発生しました: " + error.message;
+            }
+        }
+
+        function copyPrompt() {
+            const outputArea = document.getElementById('outputPrompt');
+            if (!outputArea.value.trim() || outputArea.value.includes("構築中...")) {
+                alert("コピーするプロンプトがありません。");
+                return;
+            }
+
+            outputArea.select();
+            navigator.clipboard.writeText(outputArea.value).then(() => {
+                alert("プロンプト案をクリップボードにコピーしました！右上の「AI 2画面で起動」ボタンから起動した各サービスに貼り付けてご使用ください。");
+            }).catch(err => {
+                alert("コピーに失敗しました: " + err);
+            });
+        }
+
+        // 左パネルの入力フォームクリア処理
+        function clearForm() {
+            if (!confirm("入力項目をすべてクリアしますか？")) {
+                return;
+            }
+
+            // テキスト入力欄・テキストエリアのクリア
+            document.getElementById('inputGoal').value = '';
+            document.getElementById('inputContext').value = '';
+            document.getElementById('inputTarget').value = '';
+            document.getElementById('inputFormat').value = '';
+            document.getElementById('inputLocation').value = '';
+
+            // 日付を今日に戻す
+            document.getElementById('inputDate').valueAsDate = new Date();
+        }
+
+        // 右パネルの生成プロンプト案クリア処理
+        function clearOutputPrompt() {
+            const outputArea = document.getElementById('outputPrompt');
+            if (!outputArea.value.trim()) return;
+
+            if (confirm("生成されたプロンプト案をクリアしますか？")) {
+                outputArea.value = '';
+            }
+        }
+    </script>
+</body>
+</html>
