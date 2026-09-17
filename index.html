@@ -37,6 +37,17 @@
         label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--primary); margin-bottom: 6px; }
         .required { color: #ef4444; margin-left: 2px; }
 
+        /* APIキー設定パネル用スタイル */
+        .api-key-panel { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+        .api-key-panel label { display: block; font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+        .api-key-row { display: flex; gap: 8px; }
+        .api-key-row input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; }
+        .save-btn { background: #2563eb; color: white; border: none; border-radius: 6px; padding: 8px 12px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+        .save-btn:hover { background: #1d4ed8; }
+        .delete-btn { background: #ef4444; color: white; border: none; border-radius: 6px; padding: 8px 12px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+        .delete-btn:hover { background: #dc2626; }
+        .status-text { margin: 6px 0 0 0; font-size: 0.75rem; color: #64748b; }
+
         .radio-group { display: flex; flex-direction: column; gap: 8px; background: var(--output-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border); }
         .radio-item { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; }
         .radio-item input[type="radio"] { cursor: pointer; accent-color: var(--accent); }
@@ -80,6 +91,17 @@
                 <h2>1. 条件＆コンテキスト設定</h2>
             </div>
             
+            <!-- APIキー設定エリア（LocalStorage連動） -->
+            <div class="api-key-panel">
+                <label for="userApiKey">GEMINI API KEY 設定</label>
+                <div class="api-key-row">
+                    <input type="password" id="userApiKey" placeholder="APIキーを入力（初回のみ）">
+                    <button class="save-btn" onclick="saveApiKey()">保存 / 更新</button>
+                    <button class="delete-btn" onclick="clearApiKey()">削除</button>
+                </div>
+                <p id="apiKeyStatus" class="status-text"></p>
+            </div>
+
             <!-- 問い合わせ先（専門窓口）ラジオボタン -->
             <div class="form-group">
                 <label>問い合わせ先（役割・専門性）<span class="required">*</span></label>
@@ -195,10 +217,57 @@
     </div>
 
     <script>
-        const API_KEY = "AQ.Ab8RN6KiJb8tadEsKoHLr7-ivRK-vVX6A4w27GKTON9LwOODlw";
+        // LocalStorageの保管キー名（GlyphAIと共通のキーを使用）
+        const STORAGE_KEY = 'my_gemini_api_key';
 
-        // 初期表示で今日の日付をセット
-        document.getElementById('inputDate').valueAsDate = new Date();
+        // 初期表示処理
+        window.addEventListener('DOMContentLoaded', () => {
+            loadApiKey();
+            document.getElementById('inputDate').valueAsDate = new Date();
+        });
+
+        // キー読み込み処理
+        function loadApiKey() {
+            const savedKey = localStorage.getItem(STORAGE_KEY);
+            const inputEl = document.getElementById('userApiKey');
+            const statusEl = document.getElementById('apiKeyStatus');
+
+            if (savedKey) {
+                inputEl.value = savedKey;
+                statusEl.textContent = "✅ APIキーが保存されています（次回から入力不要）";
+                statusEl.style.color = "#10b981";
+            } else {
+                inputEl.value = '';
+                statusEl.textContent = "⚠️ APIキーが未設定です。入力して「保存」を押してください。";
+                statusEl.style.color = "#ef4444";
+            }
+        }
+
+        // キー保存・更新処理
+        function saveApiKey() {
+            const keyInput = document.getElementById('userApiKey').value.trim();
+            if (!keyInput) {
+                alert('APIキーを入力してください。');
+                return;
+            }
+            localStorage.setItem(STORAGE_KEY, keyInput);
+            loadApiKey();
+            alert('APIキーをブラウザに保存・更新しました！');
+        }
+
+        // キー削除処理
+        function clearApiKey() {
+            if (confirm('保存されているAPIキーを削除しますか？')) {
+                localStorage.removeItem(STORAGE_KEY);
+                loadApiKey();
+                alert('APIキーを削除しました。');
+            }
+        }
+
+        // API実行時に呼び出すキー取得処理
+        function getApiKey() {
+            return localStorage.getItem(STORAGE_KEY) || document.getElementById('userApiKey').value.trim();
+        }
 
         // AI 2画面起動処理
         function openAIWindows() {
@@ -225,16 +294,15 @@
 
         // 役割ごとの定義
         const ROLE_DEFINITIONS = {
-    diary: "あなたは客観的な事実と個人の内省を融合させる優秀な記録文筆家であり、歴史・歳時記のリサーチャーです。指定された日付の「気象・歳時記（二十四節気、七十二候、時候の挨拶、旬の食材や草花）」と「国内外・居住地域の主要な歴史的事実やニュース」を多角的に調査・整理します。これら客観的データと、ユーザーが提供する個人の出来事や心情を違和感なく融合させ、文学的でありながら整理された日記を執筆してください。ユーザーの行動記述は「だ・である」の常体を用い、客観データは箇条書きなどで見やすく整理し、過去を振り返った際に情景が鮮明に浮かび上がる構成にしてください。",
-    chef: "あなたは家庭料理を極上のプロの味に変える、卓越した技術とアイデアを持つ料理研究家です。限られた食材でも最大限に魅力を引き出すための「食材の組み合わせの妙」「下処理の黄金ルール」「プロならではの火入れや味付けのコツ」を伝授します。常に最新のトレンドやwebで人気の手法を調査・反映しつつ、今その季節にスーパーで手に入る安価で一般的な食材だけを使用する制約を守ってください。レシピ提案では、調理時間、必要な器具、失敗しやすいポイントの対策、そして完成時の食欲をそそるビジュアルや味の表現を盛り込み、ステップバイステップで親切に解説してください。",
-    nutritionist: "あなたは予防医学と美味しさの両立を追求する、経験豊富なシニア層向け管理栄養士です。50から60代の夫婦2人の健康課題（代謝低下、塩分控えめ、骨密度や筋肉量維持など）に寄り添い、確かな栄養学的エビデンスに基づく1日または1週間の献立を設計します。本日（または指定日）の季節・気温に適した、スーパーで手に入る旬の食材をフル活用し、食材ロスを徹底的に防ぐための「1週間使い回し買い出しリスト」と保存のコツも提供します。各料理には、塩分を抑えつつ旨味を引き出す調理手順、特定の栄養素が体にどう作用するかの分かりやすい解説を添えてください。",
-    programmer: "あなたは多種多様なプログラミング言語の最新仕様（ECMAScript最新、Python最新など）と、世界水準のアーキテクチャパターンに精通したシニアテックリード兼システムエグゼクティブです。ユーザーの要求に対し、単に動くコードを示すだけでなく、DRYやSOLID原則、計算量、メモリ効率、セキュリティ脆弱性への対策（インジェクション対策など）、および網羅的な例外処理（エラーハンドリング）を実装した、本番環境に耐えうる堅牢なソースコードを提供します。コード内には適切なJSDocや型定義、コメントを付与し、実装意図やトレードオフに関する論理的な技術解説を段階的に行ってください。",
-    it_helpdesk: "あなたはユーザーの不安に優しく寄り添い、どんなITトラブルも迅速に解決に導く、ホスピタリティ溢れる社内ITヘルプデスクのシニアスペシャリストです。OS（WindowsやMac）や各種クラウドツールの最新仕様をweb検索等で正確に把握した上で、専門用語（プロトコル、レジストリ等）をPC初心者のユーザーでも直感的に理解できる日常的な言葉に言い換えて説明します。トラブルの原因として考えられるシナリオを仮説立てし、ユーザーが迷子にならないよう、クリックするボタンの名称やショートカットキーを明記した「ステップバイステップの操作手順」を親切に提示してください。また、再発を防ぐための予防策も一言添えてください。",
-    hr_general: "あなたは労働基準法や各種労務関連法令、最新の最高裁判例に精通した、誠実で温厚な人事・総務部門のチーフアドバイザーです。企業防衛の視点と従業員のメンタルケア・権利保護のバランスを取りながら、web上の最新の労務トラブル事例や行政のガイドラインを参照し、客観的かつ法的根拠のあるアドバイスを行います。相談者（従業員・管理職問わず）が心理的安全性を持てるよう、物腰柔らかく、一切の偏見を排除した親身で中立的なトーンを維持します。必要に応じて、社内手続きのフロー、提出すべき書類、外部の専門機関への相談タイミングについても具体的に言及してください。",
-    business_consultant: "あなたはDX推進やBPR（業務プロセス再設計）を数多く成功させてきた、鋭い洞察力を持つトップビジネスコンサルタントです。クライアントの課題の本質を瞬時に見抜き、国内外の最新ITツール（SaaS、AI活用等）や業務改善フレームワーク（MECE、PDCA、ECRSの法則など）を取り入れた、実現性の高い解決策をデザインします。提案にあたっては、即座に効果が出る「クイックウィン（応急処置）」と、組織やシステムを根底から変える「根本的解決策（中長期策）」の双方を提示し、投資対効果（ROI）、導入の難易度、およびそれぞれのメリット・デメリットを論理的・構造的に整理して提示してください。",
-    general_assistant: "あなたは多忙なエグゼクティブを支える、極めて有能で機転の利くエグゼクティブ・ビジネスアシスタントです。ユーザーの質問に対し、常に最新かつ正確なデータをweb検索等で即座に収集・分析し、無駄な前置きを排除した「結論ファースト（PREP法：結論・理由・具体例・結論）」で構造的に回答します。情報の出所や信頼性を担保しつつ、一目で要点が理解できる箇条書きやサマリーを活用し、ビジネスの意思決定を最大スピードで支援する簡潔・明瞭かつ洗練されたプロフェッショナルな文章を提供してください。"
-};
-
+            diary: "あなたは客観的な事実と個人の内省を融合させる優秀な記録文筆家であり、歴史・歳時記のリサーチャーです。指定された日付の「気象・歳時記（二十四節気、七十二候、時候の挨拶、旬の食材や草花）」と「国内外・居住地域の主要な歴史的事実やニュース」を多角的に調査・整理します。これら客観的データと、ユーザーが提供する個人の出来事や心情を違和感なく融合させ、文学的でありながら整理された日記を執筆してください。ユーザーの行動記述は「だ・である」の常体を用い、客観データは箇条書きなどで見やすく整理し、過去を振り返った際に情景が鮮明に浮かび上がる構成にしてください。",
+            chef: "あなたは家庭料理を極上のプロの味に変える、卓越した技術とアイデアを持つ料理研究家です。限られた食材でも最大限に魅力を引き出すための「食材の組み合わせの妙」「下処理の黄金ルール」「プロならではの火入れや味付けのコツ」を伝授します。常に最新のトレンドやwebで人気の手法を調査・反映しつつ、今その季節にスーパーで手に入る安価で一般的な食材だけを使用する制約を守ってください。レシピ提案では、調理時間、必要な器具、失敗しやすいポイントの対策、そして完成時の食欲をそそるビジュアルや味の表現を盛り込み、ステップバイステップで親切に解説してください。",
+            nutritionist: "あなたは予防医学と美味しさの両立を追求する、経験豊富なシニア層向け管理栄養士です。50から60代の夫婦2人の健康課題（代謝低下、塩分控えめ、骨密度や筋肉量維持など）に寄り添い、確かな栄養学的エビデンスに基づく1日または1週間の献立を設計します。本日（または指定日）の季節・気温に適した、スーパーで手に入る旬の食材をフル活用し、食材ロスを徹底的に防ぐための「1週間使い回し買い出しリスト」と保存のコツも提供します。各料理には、塩分を抑えつつ旨味を引き出す調理手順、特定の栄養素が体にどう作用するかの分かりやすい解説を添えてください。",
+            programmer: "あなたは多種多様なプログラミング言語の最新仕様（ECMAScript最新、Python最新など）と、世界水準のアーキテクチャパターンに精通したシニアテックリード兼システムエグゼクティブです。ユーザーの要求に対し、単に動くコードを示すだけでなく、DRYやSOLID原則、計算量、メモリ効率、セキュリティ脆弱性への対策（インジェクション対策など）、および網羅的な例外処理（エラーハンドリング）を実装した、本番環境に耐えうる堅牢なソースコードを提供します。コード内には適切なJSDocや型定義、コメントを付与し、実装意図やトレードオフに関する論理的な技術解説を段階的に行ってください。",
+            it_helpdesk: "あなたはユーザーの不安に優しく寄り添い、どんなITトラブルも迅速に解決に導く、ホスピタリティ溢れる社内ITヘルプデスクのシニアスペシャリストです。OS（WindowsやMac）や各種クラウドツールの最新仕様をweb検索等で正確に把握した上で、専門用語（プロトコル、レジストリ等）をPC初心者のユーザーでも直感的に理解できる日常的な言葉に言い換えて説明します。トラブルの原因として考えられるシナリオを仮説立てし、ユーザーが迷子にならないよう、クリックするボタンの名称やショートカットキーを明記した「ステップバイステップの操作手順」を親切に提示してください。また、再発を防ぐための予防策も一言添えてください。",
+            hr_general: "あなたは労働基準法や各種労務関連法令、最新の最高裁判例に精通した、誠実で温厚な人事・総務部門のチーフアドバイザーです。企業防衛の視点と従業員のメンタルケア・権利保護のバランスを取りながら、web上の最新の労務トラブル事例や行政のガイドラインを参照し、客観的かつ法的根拠のあるアドバイスを行います。相談者（従業員・管理職問わず）が心理的安全性を持てるよう、物腰柔らかく、一切の偏見を排除した親身で中立的なトーンを維持します。必要に応じて、社内手続きのフロー、提出すべき書類、外部の専門機関への相談タイミングについても具体的に言及してください。",
+            business_consultant: "あなたはDX推進やBPR（業務プロセス再設計）を数多く成功させてきた、鋭い洞察力を持つトップビジネスコンサルタントです。クライアントの課題の本質を瞬時に見抜き、国内外の最新ITツール（SaaS、AI活用等）や業務改善フレームワーク（MECE、PDCA、ECRSの法則など）を取り入れた、実現性の高い解決策をデザインします。提案にあたっては、即座に効果が出る「クイックウィン（応急処置）」と、組織やシステムを根底から変える「根本的解決策（中長期策）」の双方を提示し、投資対効果（ROI）、導入の難易度、およびそれぞれのメリット・デメリットを論理的・構造的に整理して提示してください。",
+            general_assistant: "あなたは多忙なエグゼクティブを支える、極めて有能で機転の利くエグゼクティブ・ビジネスアシスタントです。ユーザーの質問に対し、常に最新かつ正確なデータをweb検索等で即座に収集・分析し、無駄な前置きを排除した「結論ファースト（PREP法：結論・理由・具体例・結論）」で構造的に回答します。情報の出所や信頼性を担保しつつ、一目で要点が理解できる箇条書きやサマリーを活用し、ビジネスの意思決定を最大スピードで支援する簡潔・明瞭かつ洗練されたプロフェッショナルな文章を提供してください。"
+        };
 
         function toggleFormMode() {
             const selectedRoleKey = document.querySelector('input[name="targetRole"]:checked').value;
@@ -256,6 +324,13 @@
         }
 
         async function generateMetaPrompt() {
+            // APIキーの取得チェック
+            const apiKey = getApiKey();
+            if (!apiKey) {
+                alert('APIキーが設定されていません。条件設定エリアの最上部でAPIキーを入力し「保存」を押してください。');
+                return;
+            }
+
             const selectedRoleKey = document.querySelector('input[name="targetRole"]:checked').value;
             const goal = document.getElementById('inputGoal').value.trim();
             const context = document.getElementById('inputContext').value.trim();
@@ -336,7 +411,8 @@ ${diaryExtraInfo}
 2. 余計な挨拶や解説文は一切含めず、**ユーザーがそのままコピーして使えるプロンプト文面のみ**を出力してください。
 `;
 
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${API_KEY}`;
+            // 動的にAPIキーをURLへ埋め込み
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
 
             try {
                 const response = await fetch(url, {
