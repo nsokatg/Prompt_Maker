@@ -222,9 +222,16 @@
 
         // 初期表示処理
         window.addEventListener('DOMContentLoaded', () => {
-            loadApiKey();
-            document.getElementById('inputDate').valueAsDate = new Date();
-        });
+    loadApiKey();
+    
+    // ローカル（OS設定）の日付をもとに YYYY-MM-DD 文字列を作成
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    
+    document.getElementById('inputDate').value = `${yyyy}-${mm}-${dd}`;
+});
 
         // キー読み込み処理
         function loadApiKey() {
@@ -466,7 +473,11 @@ ${diaryExtraInfo}
             document.getElementById('inputFormat').value = '';
             document.getElementById('inputLocation').value = '';
 
-            document.getElementById('inputDate').valueAsDate = new Date();
+            const now = new Date();
+const yyyy = now.getFullYear();
+const mm = String(now.getMonth() + 1).padStart(2, '0');
+const dd = String(now.getDate()).padStart(2, '0');
+document.getElementById('inputDate').value = `${yyyy}-${mm}-${dd}`;
         }
 
         function clearOutputPrompt() {
